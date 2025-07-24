@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Admin Dashboard</title>
+    <meta name="theme-color" content="#10b981">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E">
+    
+    <script>
+        // Create manifest dynamically
+        const manifest = {
+            name: "Medical Admin Dashboard",
+            short_name: "Med Dash",
+            description: "Medical administrative task management dashboard",
+            start_url: "./",
+            display: "standalone",
+            background_color: "#ffffff",
+            theme_color: "#10b981",
+            icons: [
+                {
+                    src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E",
+                    sizes: "192x192",
+                    type: "image/svg+xml"
+                },
+                {
+                    src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E",
+                    sizes: "512x512",
+                    type: "image/svg+xml"
+                }
+            ]
+        };
+        
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const linkElement = document.createElement('link');
+        linkElement.rel = 'manifest';
+        linkElement.href = manifestURL;
+        document.head.appendChild(linkElement);
+    </script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .hidden { display: none; }
+        
+        /* Install button styles */
+        #installBtn {
+            /* Moved to inline with other buttons */
+        }
+        
+        /* Offline indicator */
+        .offline-indicator {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 p-4">
+    <!-- Install Button -->
+    <button id="installBtn" class="hidden">Install App</button>
+    
+    <!-- Offline Indicator -->
+    <div id="offlineIndicator" class="offline-indicator hidden">Offline</div>
+    
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-bold text-gray-900">Medical Admin Dashboard</h1>
+                <div class="flex gap-2">
+                    <button id="installBtn" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 hidden">Install App</button>
+                    <button id="exportBtn" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">Export</button>
+                    <button id="importBtn" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">Import</button>
+                    <input type="file" id="importFile" accept=".json" class="hidden">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 p-4 rounded-lg text-center">
+                    <div class="text-2xl font-bold text-blue-600" id="pendingCount">0</div>
+                    <div class="text-sm text-blue-600">Pending Tasks</div>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg text-center">
+                    <div class="text-2xl font-bold text-green-600" id="completedCount">0</div>
+                    <div class="text-sm text-green-600">Completed Today</div>
+                </div>
+                <div class="bg-red-50 p-4 rounded-lg text-center">
+                    <div class="text-2xl font-bold text-red-600" id="urgentCount">0</div>
+                    <div class="text-sm text-red-600">Urgent</div>
+                </div>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                <button id="filter-visit-notes" onclick="setFilter('visit-notes')" class="bg-blue-100 border-blue-300 border-2 p-4 rounded-lg hover:bg-opacity-80 transition-colors flex flex-col items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14,2 14,8 20,8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    <span class="text-sm font-medium">Visit Notes</span>
+                </button>
+                
+                <button id="filter-test-results" onclick="setFilter('test-results')" class="bg-green-100 border-green-300 border-2 p-4 rounded-lg hover:bg-opacity-80 transition-colors flex flex-col items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6"></path>
+                        <path d="m21 12-6-3-6 3-6-3"></path>
+                    </svg>
+                    <span class="text-sm font-medium">Test Results</span>
+                </button>
+                
+                <button id="filter-forms" onclick="setFilter('forms')" class="bg-orange-100 border-orange-300 border-2 p-4 rounded-lg hover:bg-opacity-80 transition-colors flex flex-col items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                        <path d="M12 11h4"></path>
+                        <path d="M12 16h4"></path>
+                        <path d="M8 11h.01"></path>
+                        <path d="M8 16h.01"></path>
+                    </svg>
+                    <span class="text-sm font-medium">Forms</span>
+                </button>
+                
+                <button id="filter-other" onclick="setFilter('other')" class="bg-yellow-100 border-yellow-300 border-2 p-4 rounded-lg hover:bg-opacity-80 transition-colors flex flex-col items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                    <span class="text-sm font-medium">Other</span>
+                </button>
+
+                <!-- Prescriptions Button -->
+                <button id="prescriptionsBtn" onclick="showPrescriptionModal()" class="bg-purple-100 border-purple-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="2"></circle>
+                    </svg>
+                    <span class="text-sm font-medium">Prescriptions</span>
+                    <span id="prescriptionDays" class="text-xs text-purple-600 hidden"></span>
+                </button>
+
+                <!-- Check Labs Button -->
+                <button id="checkLabsBtn" onclick="toggleCheckLabs()" class="bg-gray-100 border-gray-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="labsCheckbox" class="w-5 h-5">
+                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12,6 12,12 16,14"></polyline>
+                        </svg>
+                    </div>
+                    <span class="text-sm font-medium">Check Labs</span>
+                    <span id="labsStatus" class="text-xs hidden"></span>
+                </button>
+            </div>
+
+            <!-- Add Task Buttons -->
+            <div class="mb-4">
+                <div class="border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
+                    <div class="flex justify-center gap-2 overflow-x-auto">
+                        <button onclick="showVisitNotesModal()" class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-200 transition-colors flex items-center gap-1 text-xs font-medium whitespace-nowrap flex-shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Visit Notes</span>
+                        </button>
+                        <button onclick="showTaskModal('test-results')" class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-200 transition-colors flex items-center gap-1 text-xs font-medium whitespace-nowrap flex-shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Test Results</span>
+                        </button>
+                        <button onclick="showTaskModal('forms')" class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-200 transition-colors flex items-center gap-1 text-xs font-medium whitespace-nowrap flex-shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Forms</span>
+                        </button>
+                        <button onclick="showTaskModal('other')" class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-200 transition-colors flex items-center gap-1 text-xs font-medium whitespace-nowrap flex-shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Other</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task List -->
+        <div id="taskList" class="space-y-3"></div>
+    </div>
+
+    <!-- Visit Notes Modal -->
+    <div id="visitNotesModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4">Add Visit Notes</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Date:</label>
+                <input type="date" id="visitNotesDate" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Number of notes to complete:</label>
+                <input type="number" id="visitNotesCount" min="1" placeholder="Enter number..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="flex gap-2">
+                <button onclick="addVisitNotes()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Add Notes</button>
+                <button onclick="hideModal('visitNotesModal')" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4">Name your task</h3>
+            <p class="text-gray-600 mb-4" id="taskModalText">What should this task be called?</p>
+            <input type="text" id="taskName" placeholder="Enter task name..." class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-blue-500">
+            <div class="flex gap-2">
+                <button onclick="createTask()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Create Task</button>
+                <button onclick="hideModal('taskModal')" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Date Modal -->
+    <div id="formDateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4">When was this form received?</h3>
+            <p class="text-gray-600 mb-4" id="formTaskName">"Form task"</p>
+            <input type="date" id="formDate" class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-blue-500">
+            <div class="flex gap-2">
+                <button onclick="createFormTask()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Create</button>
+                <button onclick="setFormDateToday()" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">Today</button>
+                <button onclick="hideModal('formDateModal')" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prescription Modal -->
+    <div id="prescriptionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4">Oldest Prescription Request</h3>
+            <p class="text-gray-600 mb-4">When was your oldest pending prescription renewal request received?</p>
+            <input type="date" id="prescriptionDate" class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-blue-500">
+            <div class="flex gap-2">
+                <button onclick="savePrescriptionDate()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Save</button>
+                <button onclick="clearPrescriptionDate()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Clear All</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Storage
+        let appData = {
+            tasks: [],
+            visitNotes: [],
+            checkLabsCompleted: false,
+            checkLabsDate: new Date().toDateString(),
+            oldestPrescriptionDate: null,
+            currentFilter: 'all'
+        };
+
+        let currentTaskCategory = '';
+        let currentFormTask = '';
+
+        // Categories
+        const categories = {
+            'test-results': { name: 'Test Results', color: 'bg-green-100 border-green-300' },
+            'forms': { name: 'Forms', color: 'bg-orange-100 border-orange-300' },
+            'other': { name: 'Other', color: 'bg-yellow-100 border-yellow-300' }
+        };
+
+        // PWA Installation
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBtn').classList.remove('hidden');
+        });
+
+        // Also show button after a delay for testing
+        setTimeout(() => {
+            if (document.getElementById('installBtn').classList.contains('hidden')) {
+                document.getElementById('installBtn').classList.remove('hidden');
+                document.getElementById('installBtn').textContent = 'Test Install';
+            }
+        }, 2000);
+
+        document.getElementById('installBtn').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                document.getElementById('installBtn').classList.add('hidden');
+            }
+        });
+
+        // Offline Detection
+        function updateOnlineStatus() {
+            const indicator = document.getElementById('offlineIndicator');
+            if (navigator.onLine) {
+                indicator.classList.add('hidden');
+            } else {
+                indicator.classList.remove('hidden');
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+
+        // Data Persistence
+        function saveData() {
+            localStorage.setItem('medicalDashboardData', JSON.stringify(appData));
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('medicalDashboardData');
+            if (saved) {
+                appData = { ...appData, ...JSON.parse(saved) };
+            }
+        }
+
+        // Export/Import Functions
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const dataStr = JSON.stringify(appData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `medical-dashboard-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('importBtn').addEventListener('click', () => {
+            document.getElementById('importFile').click();
+        });
+
+        document.getElementById('importFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        appData = { ...appData, ...importedData };
+                        saveData();
+                        renderAll();
+                        alert('Data imported successfully!');
+                    } catch (error) {
+                        alert('Error importing data. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Modal Functions
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function showVisitNotesModal() {
+            document.getElementById('visitNotesDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('visitNotesCount').value = '';
+            showModal('visitNotesModal');
+        }
+
+        function showTaskModal(category) {
+            currentTaskCategory = category;
+            document.getElementById('taskModalText').textContent = `What should this ${categories[category].name.toLowerCase()} task be called?`;
+            document.getElementById('taskName').value = '';
+            showModal('taskModal');
+        }
+
+        function showPrescriptionModal() {
+            document.getElementById('prescriptionDate').value = appData.oldestPrescriptionDate || '';
+            showModal('prescriptionModal');
+        }
+
+        // Visit Notes Functions
+        function addVisitNotes() {
+            const date = document.getElementById('visitNotesDate').value;
+            const count = parseInt(document.getElementById('visitNotesCount').value);
+            
+            if (!date || !count || count < 1) return;
+
+            const existing = appData.visitNotes.find(vn => vn.date === date);
+            if (existing) {
+                existing.count += count;
+            } else {
+                appData.visitNotes.push({
+                    id: Date.now().toString(),
+                    date: date,
+                    count: count,
+                    completed: 0
+                });
+            }
+
+            hideModal('visitNotesModal');
+            saveData();
+            renderAll();
+        }
+
+        function toggleVisitNote(id) {
+            const vn = appData.visitNotes.find(note => note.id === id);
+            if (vn) {
+                if (vn.completed < vn.count) {
+                    vn.completed++;
+                } else {
+                    vn.completed = Math.max(0, vn.completed - 1);
+                }
+                saveData();
+                renderAll();
+            }
+        }
+
+        function addVisitNoteToDate(id) {
+            const vn = appData.visitNotes.find(note => note.id === id);
+            if (vn) {
+                vn.count++;
+                saveData();
+                renderAll();
+            }
+        }
+
+        function deleteVisitNote(id) {
+            appData.visitNotes = appData.visitNotes.filter(vn => vn.id !== id);
+            saveData();
+            renderAll();
+        }
+
+        // Task Functions
+        function createTask() {
+            const taskName = document.getElementById('taskName').value.trim();
+            if (!taskName) return;
+
+            if (currentTaskCategory === 'forms') {
+                currentFormTask = taskName;
+                hideModal('taskModal');
+                document.getElementById('formTaskName').textContent = `"${taskName}"`;
+                document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
+                showModal('formDateModal');
+            } else {
+                const task = {
+                    id: Date.now().toString(),
+                    description: taskName,
+                    category: currentTaskCategory,
+                    completed: false,
+                    urgent: false,
+                    createdAt: new Date().toISOString()
+                };
+                appData.tasks.push(task);
+                hideModal('taskModal');
+                saveData();
+                renderAll();
+            }
+        }
+
+        function createFormTask() {
+            const formDate = document.getElementById('formDate').value;
+            if (!formDate) return;
+
+            const task = {
+                id: Date.now().toString(),
+                description: currentFormTask,
+                category: 'forms',
+                completed: false,
+                urgent: false,
+                createdAt: new Date().toISOString(),
+                formDate: formDate
+            };
+            appData.tasks.push(task);
+            hideModal('formDateModal');
+            saveData();
+            renderAll();
+        }
+
+        function setFormDateToday() {
+            document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
+            createFormTask();
+        }
+
+        function toggleTask(id) {
+            const task = appData.tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveData();
+                renderAll();
+            }
+        }
+
+        function toggleUrgent(id) {
+            const task = appData.tasks.find(t => t.id === id);
+            if (task) {
+                task.urgent = !task.urgent;
+                saveData();
+                renderAll();
+            }
+        }
+
+        function deleteTask(id) {
+            appData.tasks = appData.tasks.filter(t => t.id !== id);
+            saveData();
+            renderAll();
+        }
+
+        // Prescription Functions
+        function savePrescriptionDate() {
+            appData.oldestPrescriptionDate = document.getElementById('prescriptionDate').value;
+            hideModal('prescriptionModal');
+            saveData();
+            updatePrescriptionStatus();
+        }
+
+        function clearPrescriptionDate() {
+            appData.oldestPrescriptionDate = null;
+            hideModal('prescriptionModal');
+            saveData();
+            updatePrescriptionStatus();
+        }
+
+        function updatePrescriptionStatus() {
+            const btn = document.getElementById('prescriptionsBtn');
+            const daysSpan = document.getElementById('prescriptionDays');
+            
+            if (!appData.oldestPrescriptionDate) {
+                btn.className = 'bg-purple-100 border-purple-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                daysSpan.classList.add('hidden');
+                return;
+            }
+
+            const today = new Date();
+            const requestDate = new Date(appData.oldestPrescriptionDate);
+            
+            // Calculate business days
+            let businessDays = 0;
+            const currentDate = new Date(requestDate);
+            currentDate.setDate(currentDate.getDate() + 1); // Start from day after request
+            
+            while (currentDate <= today) {
+                if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                    businessDays++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            daysSpan.textContent = `${businessDays} business day${businessDays !== 1 ? 's' : ''}`;
+            daysSpan.classList.remove('hidden');
+
+            // Update colors based on urgency
+            if (businessDays >= 5) {
+                btn.className = 'bg-red-200 border-red-400 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                daysSpan.className = 'text-xs text-red-700';
+            } else if (businessDays >= 4) {
+                btn.className = 'bg-red-100 border-red-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                daysSpan.className = 'text-xs text-red-600';
+            } else if (businessDays >= 3) {
+                btn.className = 'bg-orange-100 border-orange-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                daysSpan.className = 'text-xs text-orange-600';
+            } else if (businessDays >= 2) {
+                btn.className = 'bg-yellow-100 border-yellow-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                daysSpan.className = 'text-xs text-yellow-700';
+            } else {
+                btn.className = 'bg-purple-100 border-purple-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                daysSpan.className = 'text-xs text-purple-600';
+            }
+        }
+
+        // Check Labs Functions
+        function toggleCheckLabs() {
+            appData.checkLabsCompleted = !appData.checkLabsCompleted;
+            const today = new Date().toDateString();
+            if (appData.checkLabsDate !== today) {
+                appData.checkLabsCompleted = false;
+                appData.checkLabsDate = today;
+            }
+            saveData();
+            updateCheckLabsStatus();
+            renderStats();
+        }
+
+        function updateCheckLabsStatus() {
+            const checkbox = document.getElementById('labsCheckbox');
+            const btn = document.getElementById('checkLabsBtn');
+            const status = document.getElementById('labsStatus');
+            const today = new Date();
+            const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+
+            // Reset if new day
+            if (appData.checkLabsDate !== today.toDateString()) {
+                appData.checkLabsCompleted = false;
+                appData.checkLabsDate = today.toDateString();
+            }
+
+            checkbox.checked = appData.checkLabsCompleted;
+
+            if (isWeekend) {
+                btn.className = 'bg-gray-100 border-gray-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                status.classList.add('hidden');
+                return;
+            }
+
+            const now = today.getHours() * 60 + today.getMinutes();
+            const softDeadline = 17 * 60; // 5 PM
+            const hardDeadline = 24 * 60; // Midnight
+
+            if (appData.checkLabsCompleted) {
+                btn.className = 'bg-green-100 border-green-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                status.classList.add('hidden');
+            } else if (now > hardDeadline) {
+                btn.className = 'bg-red-100 border-red-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                status.textContent = 'Overdue';
+                status.className = 'text-xs text-red-600';
+                status.classList.remove('hidden');
+            } else if (now > softDeadline) {
+                btn.className = 'bg-orange-100 border-orange-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                status.textContent = 'Due by 5pm';
+                status.className = 'text-xs text-orange-600';
+                status.classList.remove('hidden');
+            } else {
+                btn.className = 'bg-gray-100 border-gray-300 border-2 p-4 rounded-lg transition-colors flex flex-col items-center gap-2';
+                status.classList.add('hidden');
+            }
+        }
+
+        // Filter Functions
+        function setFilter(category) {
+            appData.currentFilter = appData.currentFilter === category ? 'all' : category;
+            
+            // Update filter button styles
+            document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-blue-500');
+            });
+            
+            if (appData.currentFilter !== 'all') {
+                document.getElementById(`filter-${appData.currentFilter}`).classList.add('ring-2', 'ring-blue-500');
+            }
+            
+            saveData();
+            renderTasks();
+        }
+
+        // Utility Functions
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (date.toDateString() === today.toDateString()) return 'Today';
+            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            
+            const daysDiff = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+            if (daysDiff <= 7) return `${daysDiff} days ago`;
+            
+            return date.toLocaleDateString();
+        }
+
+        function getDaysSinceForm(formDate) {
+            if (!formDate) return '';
+            const today = new Date();
+            const form = new Date(formDate);
+            const diffTime = today - form;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays > 0 ? `${diffDays} day${diffDays === 1 ? '' : 's'} ago` : 'Today';
+        }
+
+        // Rendering Functions
+        function renderStats() {
+            const pendingTasks = appData.tasks.filter(t => !t.completed).length;
+            const pendingVisitNotes = appData.visitNotes.reduce((sum, vn) => sum + (vn.count - vn.completed), 0);
+            const completedTasks = appData.tasks.filter(t => t.completed).length;
+            const completedVisitNotes = appData.visitNotes.reduce((sum, vn) => sum + vn.completed, 0);
+            const urgentTasks = appData.tasks.filter(t => !t.completed && t.urgent).length;
+
+            document.getElementById('pendingCount').textContent = pendingTasks + pendingVisitNotes;
+            document.getElementById('completedCount').textContent = completedTasks + completedVisitNotes;
+            document.getElementById('urgentCount').textContent = urgentTasks;
+        }
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            let html = '';
+
+            // Filter visit notes
+            const filteredVisitNotes = (appData.currentFilter === 'all' || appData.currentFilter === 'visit-notes') ? appData.visitNotes : [];
+
+            // Filter tasks
+            const filteredTasks = appData.currentFilter === 'all' ? appData.tasks : appData.tasks.filter(task => task.category === appData.currentFilter);
+
+            // Render visit notes
+            filteredVisitNotes.forEach(vn => {
+                const progressWidth = (vn.completed / vn.count) * 100;
+                const isCompleted = vn.completed === vn.count;
+                
+                html += `
+                    <div class="bg-blue-100 border-blue-300 border-2 rounded-lg p-4 transition-all">
+                        <div class="flex items-start gap-3">
+                            <button onclick="toggleVisitNote('${vn.id}')" class="mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 ${isCompleted ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'} flex items-center justify-center transition-colors">
+                                ${isCompleted ? '✓' : ''}
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14,2 14,8 20,8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    </svg>
+                                    <span class="font-medium text-sm">Visit Notes</span>
+                                    <span class="text-sm text-gray-600">- ${formatDate(vn.date)}</span>
+                                </div>
+                                <div class="p-2 rounded border border-gray-200 bg-white">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-lg font-semibold">${vn.completed} / ${vn.count} completed</span>
+                                        <div class="flex gap-2">
+                                            <button onclick="addVisitNoteToDate('${vn.id}')" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">Add +1</button>
+                                            <button onclick="deleteVisitNote('${vn.id}')" class="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded">×</button>
+                                        </div>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                        <div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${progressWidth}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Sort and render tasks
+            const sortedTasks = filteredTasks.sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed - b.completed;
+                if (a.urgent !== b.urgent) return b.urgent - a.urgent;
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+            sortedTasks.forEach(task => {
+                const category = categories[task.category];
+                if (!category) return;
+
+                html += `
+                    <div class="${category.color} border-2 rounded-lg p-4 transition-all ${task.completed ? 'opacity-60' : ''} ${task.urgent && !task.completed ? 'ring-2 ring-red-400' : ''}">
+                        <div class="flex items-start gap-3">
+                            <button onclick="toggleTask('${task.id}')" class="mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 ${task.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'} flex items-center justify-center transition-colors">
+                                ${task.completed ? '✓' : ''}
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-sm">${category.name}</span>
+                                    ${task.urgent && !task.completed ? '<span class="text-red-500">⚠</span>' : ''}
+                                </div>
+                                <div class="min-h-6 p-2 rounded border border-gray-200 bg-white ${task.completed ? 'line-through' : ''}">${task.description}</div>
+                                ${task.category === 'forms' && task.formDate ? `<div class="text-xs text-gray-500 mt-1">Received ${getDaysSinceForm(task.formDate)}</div>` : ''}
+                                <div class="flex items-center gap-2 mt-3">
+                                    <button onclick="toggleUrgent('${task.id}')" class="px-3 py-1 text-sm rounded transition-colors ${task.urgent ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">${task.urgent ? 'Urgent' : 'Normal'}</button>
+                                    <button onclick="deleteTask('${task.id}')" class="ml-auto p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded">×</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (filteredTasks.length === 0 && filteredVisitNotes.length === 0) {
+                html = `
+                    <div class="text-center py-12 text-gray-500">
+                        <svg class="mx-auto mb-4 opacity-50" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14,2 14,8 20,8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <p>${appData.currentFilter === 'all' ? 'No tasks yet. Use the buttons above to add your first task.' : 'No tasks in this category.'}</p>
+                    </div>
+                `;
+            }
+
+            taskList.innerHTML = html;
+        }
+
+        function renderAll() {
+            renderStats();
+            renderTasks();
+            updatePrescriptionStatus();
+            updateCheckLabsStatus();
+        }
+
+        // Initialize App
+        function initApp() {
+            loadData();
+            renderAll();
+            
+            // Set up periodic updates for check labs
+            setInterval(() => {
+                updateCheckLabsStatus();
+                updatePrescriptionStatus();
+            }, 60000); // Update every minute
+        }
+
+        // Start the app
+        initApp();
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    const CACHE_NAME = 'medical-dashboard-v1';
+                    const urlsToCache = ['/'];
+                    
+                    self.addEventListener('install', (event) => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then((cache) => cache.addAll(urlsToCache))
+                        );
+                    });
+                    
+                    self.addEventListener('fetch', (event) => {
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then((response) => {
+                                    return response || fetch(event.request);
+                                })
+                        );
+                    });
+                `;
+                
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then(() => console.log('SW registered'))
+                    .catch(() => console.log('SW registration failed'));
+            });
+        }
+    </script>
+</body>
+</html>
