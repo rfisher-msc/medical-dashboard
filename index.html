@@ -13,7 +13,7 @@
             name: "Medical Admin Dashboard",
             short_name: "Med Dash",
             description: "Medical administrative task management dashboard",
-            start_url: "./",
+            start_url: "/medical-dashboard/",
             display: "standalone",
             background_color: "#ffffff",
             theme_color: "#10b981",
@@ -304,8 +304,11 @@
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
+                console.log('Install outcome:', outcome);
                 deferredPrompt = null;
                 document.getElementById('installBtn').classList.add('hidden');
+            } else {
+                alert('Installation not available. Try: Chrome menu → "Install Medical Admin Dashboard" or look for ⊕ icon in address bar');
             }
         });
 
@@ -828,22 +831,28 @@
             window.addEventListener('load', () => {
                 const swCode = `
                     const CACHE_NAME = 'medical-dashboard-v1';
-                    const urlsToCache = ['/'];
                     
                     self.addEventListener('install', (event) => {
-                        event.waitUntil(
-                            caches.open(CACHE_NAME)
-                                .then((cache) => cache.addAll(urlsToCache))
-                        );
+                        self.skipWaiting();
+                    });
+                    
+                    self.addEventListener('activate', (event) => {
+                        self.clients.claim();
                     });
                     
                     self.addEventListener('fetch', (event) => {
-                        event.respondWith(
-                            caches.match(event.request)
-                                .then((response) => {
-                                    return response || fetch(event.request);
-                                })
-                        );
+                        // Only cache same-origin requests
+                        if (event.request.url.startsWith(self.location.origin)) {
+                            event.respondWith(
+                                caches.match(event.request)
+                                    .then((response) => {
+                                        return response || fetch(event.request);
+                                    })
+                                    .catch(() => {
+                                        return fetch(event.request);
+                                    })
+                            );
+                        }
                     });
                 `;
                 
