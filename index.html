@@ -376,18 +376,21 @@
 
         // Visit Notes Functions
         function addVisitNotes() {
-            const date = document.getElementById('visitNotesDate').value;
+            const dateInput = document.getElementById('visitNotesDate').value;
             const count = parseInt(document.getElementById('visitNotesCount').value);
             
-            if (!date || !count || count < 1) return;
+            if (!dateInput || !count || count < 1) return;
 
-            const existing = appData.visitNotes.find(vn => vn.date === date);
+            // Use the exact date string from the input (no timezone conversion)
+            const dateString = dateInput;
+
+            const existing = appData.visitNotes.find(vn => vn.date === dateString);
             if (existing) {
                 existing.count += count;
             } else {
                 appData.visitNotes.push({
                     id: Date.now().toString(),
-                    date: date,
+                    date: dateString,
                     count: count,
                     completed: 0
                 });
@@ -639,18 +642,14 @@
 
         // Utility Functions
         function formatDate(dateString) {
-            const date = new Date(dateString);
-            const today = new Date();
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            
-            if (date.toDateString() === today.toDateString()) return 'Today';
-            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-            
-            const daysDiff = Math.floor((today - date) / (1000 * 60 * 60 * 24));
-            if (daysDiff <= 7) return `${daysDiff} days ago`;
-            
-            return date.toLocaleDateString();
+            // Always show the actual date instead of relative dates
+            const date = new Date(dateString + 'T00:00:00'); // Prevent timezone issues
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric',
+                year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+            });
         }
 
         function getDaysSinceForm(formDate) {
